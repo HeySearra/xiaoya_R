@@ -1,0 +1,26 @@
+{
+    "id": "5974FDE9",
+    "path": "E:/实验室/小雅医生开发/xiaoya-R/xiaoya/datasets/standard_merged_data.csv",
+    "project_path": "datasets/standard_merged_data.csv",
+    "type": "text",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1718602954495.0,
+    "source_on_save": false,
+    "relative_order": 14,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "0,1207",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1717224435,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1717224435,
+    "read_only": false,
+    "read_only_alternatives": []
+}

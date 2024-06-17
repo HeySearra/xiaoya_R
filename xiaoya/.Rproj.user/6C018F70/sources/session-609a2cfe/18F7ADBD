@@ -1,0 +1,28 @@
+{
+    "id": "18F7ADBD",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1717422791231.0,
+    "source_on_save": false,
+    "relative_order": 9,
+    "properties": {
+        "id": "5e17f70fae7b4653996b845dcdcb4b74",
+        "name": "Pipeline",
+        "title": "Pipeline",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 8587646985805587561,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1717422791231,
+    "read_only": false,
+    "read_only_alternatives": []
+}

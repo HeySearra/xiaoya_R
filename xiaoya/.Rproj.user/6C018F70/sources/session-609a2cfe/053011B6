@@ -1,0 +1,26 @@
+{
+    "id": "053011B6",
+    "path": "E:/实验室/小雅医生开发/xiaoya-R/xiaoya/datasets/standard_target_data.csv",
+    "project_path": "datasets/standard_target_data.csv",
+    "type": "text",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1718603047783.0,
+    "source_on_save": false,
+    "relative_order": 17,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "0,0",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1717224435,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1717224435,
+    "read_only": false,
+    "read_only_alternatives": []
+}
