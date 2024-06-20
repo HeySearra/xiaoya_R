@@ -40,11 +40,17 @@ data_handler <- save_processed_data(data_handler)
 debug(analyze_dataset)
 result <- analyze_dataset(data_handler)
 
+
+data_handler <- list(
+  merged_df = fread("datasets/standard_merged_data.csv"),
+  target = fread("datasets/standard_target_data.csv")
+)
+
 # 初始化Pipeline对象并执行
-pipeline <- Pipeline$new()
-debug(pipeline$execute)
-result <- pipeline$execute()
-print(result)
+pipeline_gru <- Pipeline$new(data_handler, model_type = "GRU", act_function = "relu")
+debug(pipeline_gru$execute)
+result_gru <- pipeline_gru$execute()
+print(result_gru)
 
 # data analysis
 data_analyzer <- DataAnalyzer$new(config, model_path)
