@@ -1,46 +1,49 @@
 library(torch)
 library(R6)
 
-GRU <- nn_module(
-  "GRU",
+MyGRU <- R6::R6Class(
+  "MyGRU",
+  public = list(
+    input_dim = NULL,
+    hidden_dim = NULL,
+    act_layer = NULL,
+    drop = NULL,
 
-  initialize = function(input_dim, hidden_dim, act_layer, drop, ...) {
-    self$input_dim <- input_dim
-    self$hidden_dim <- hidden_dim
-    self$proj <- nn_linear(input_dim, hidden_dim)
-    self$act <- act_layer()
-    self$dropout <- nn_dropout(p = drop)
-    self$gru <- nn_gru(input_size = hidden_dim, hidden_size = hidden_dim, num_layers = 1, batch_first = TRUE)
-    self$output <- nn_linear(hidden_dim, 1)
-  },
+    initialize = function(input_dim, hidden_dim, act_layer, drop) {
+      self$input_dim <- input_dim
+      self$hidden_dim <- hidden_dim
+      self$act_layer <- act_layer
+      self$drop <- drop
+    },
 
-  forward = function(x) {
-    x <- self$proj(x)
-    x <- self$act(x)
-    x <- self$dropout(x)
-    x <- self$gru(x)
-    x <- self$output(x[[1]][, -1, , drop = FALSE])
-    return(x)
-  }
+    forward = function(x) {
+      # Forward pass logic
+    }
+  )
 )
 
-MLP <- nn_module(
-  "MLP",
+# 测试 MyGRU 类的实例化
+my_gru_instance <- MyGRU$new(input_dim = 10, hidden_dim = 20, act_layer = "relu", drop = 0.5)
+print(my_gru_instance)
 
-  initialize = function(input_dim, hidden_dim, act_layer, drop, ...) {
-    self$input_dim <- input_dim
-    self$hidden_dim <- hidden_dim
-    self$proj <- nn_linear(input_dim, hidden_dim)
-    self$act <- act_layer()
-    self$dropout <- nn_dropout(p = drop)
-    self$output <- nn_linear(hidden_dim, 1)
-  },
+# 定义 MyMLP 类
+MyMLP <- R6::R6Class(
+  "MyMLP",
+  public = list(
+    input_dim = NULL,
+    hidden_dim = NULL,
+    act_layer = NULL,
+    drop = NULL,
 
-  forward = function(x) {
-    x <- self$proj(x)
-    x <- self$act(x)
-    x <- self$dropout(x)
-    x <- self$output(x)
-    return(x)
-  }
+    initialize = function(input_dim, hidden_dim, act_layer, drop) {
+      self$input_dim <- input_dim
+      self$hidden_dim <- hidden_dim
+      self$act_layer <- act_layer
+      self$drop <- drop
+    },
+
+    forward = function(x) {
+      # Forward pass logic for MLP
+    }
+  )
 )
