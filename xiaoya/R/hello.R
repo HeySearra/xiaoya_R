@@ -16,6 +16,17 @@ library(data.table)
 source('R/data_handler.R')
 source('R/pipeline.R')
 
+# temp
+debug(Pipeline$new)
+pipeline_gru <- Pipeline$new(data_handler, model_type = "GRU", act_function = "relu")
+debug(pipeline_gru$execute)
+result_gru <- pipeline_gru$execute()
+print(result_gru)
+
+
+
+###################
+
 labtest_data <- fread('datasets/raw_labtest_data.csv')
 events_data <- fread('datasets/raw_events_data.csv')
 target_data <- fread('datasets/raw_target_data.csv')
@@ -69,6 +80,17 @@ data_handler <- list(
   target = data.table(Outcome = rnorm(100))
 )
 
+
+# 按患者ID分组
+patient_data <- split(data_handler$merged_df, data_handler$merged_df$PatientID)
+
+# 将每个患者的数据转换为矩阵
+patient_matrices <- lapply(patient_data, function(df) {
+  # 移除不需要的列（例如 PatientID 和 RecordTime）
+  df <- df[, !c("PatientID", "RecordTime"), with = FALSE]
+  as.matrix(df)
+})
+
 # 初始化 Pipeline 实例
 debug(Pipeline$new)
 pipeline_gru <- Pipeline$new(data_handler, model_type = "GRU", act_function = "relu")
@@ -107,6 +129,7 @@ target <- fread("datasets/standard_target_data.csv")
 
 # 将 target 数据添加到 merged_df
 merged_df <- cbind(merged_df, target)
+
 EHRDataset <- dataset(
   name = "EHRDataset",
 
@@ -121,12 +144,12 @@ EHRDataset <- dataset(
     self$y <- as.matrix(self$y)
   },
 
-  .getitem = function(i) {
+  get_item = function(i) {
     list(x = torch_tensor(self$x[i, ]), y = torch_tensor(self$y[i]))
   },
 
-  .length = function() {
-    nrow(self$data)
+  length = function() {
+    nrow(self$x)
   }
 )
 
@@ -148,14 +171,14 @@ data_handler <- list(
     valid_ds <- EHRDataset(valid_data)
 
     # 创建数据加载器
-    train_dl <- dataloader(train_ds, batch_size = batch_size, shuffle = shuffle)
-    valid_dl <- dataloader(valid_ds, batch_size = batch_size, shuffle = FALSE)
+    train_dl <- dataloader(train_ds, batch_size = 16, shuffle = TRUE)
+    valid_dl <- dataloader(valid_ds, batch_size = 16, shuffle = TRUE)
 
     list(train_dl = train_dl, valid_dl = valid_dl)
   }
 )
 
-# 示例使用
+undebug(data_handler$train_dataloader)
 dataloaders <- data_handler$train_dataloader()
 train_dl <- dataloaders$train_dl
 valid_dl <- dataloaders$valid_dl
