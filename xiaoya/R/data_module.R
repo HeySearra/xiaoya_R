@@ -1,63 +1,58 @@
+library(h2o)
 library(data.table)
-library(torch)
 library(R6)
-library(coro)
-library(data.table)
-library(reticulate)
-use_python("C:/Users/lenovo/AppData/Local/Programs/Python/Python38/python.exe")
-
-EhrDataset <- dataset(
-  name = "EhrDataset",
-
-  initialize = function(data, target) {
-    self$data <- data
-    self$target <- target
-  },
-
-  .getitem = function(index) {
-    list(x = self$data[index, ], y = self$target[index])
-  },
-
-  .length = function() {
-    self$data$size(1)
-  }
-)
+Sys.setenv(JAVA_HOME = "D:/Program Files/Java/jdk-11.0.12")
 
 
-EhrDataModule <- R6Class(
-  "EhrDataModule",
-
+EHRDataset <- R6Class(
+  "EHRDataset",
   public = list(
-    data = NULL,
+    merged_df = NULL,
     target = NULL,
-    batch_size = NULL,
+    data_handler = NULL,
 
-    initialize = function(data, target, batch_size) {
-      self$data <- data
-      self$target <- target
-      self$batch_size <- batch_size
+    initialize = function(merged_path, target_path) {
+      h2o.init()
+      # 加载数据
+      self$merged_df <- fread(merged_path)
+      self$target <- fread(target_path)
+
+      # 处理缺失值
+      self$merged_df[self$merged_df == "na"] <- NA
+
+      # 转换数值列为数值类型
+      numeric_columns <- names(self$merged_df)[sapply(self$merged_df, function(x) all(grepl("^[0-9.]+$", x[!is.na(x)])))]
+      self$merged_df[, (numeric_columns) := lapply(.SD, as.numeric), .SDcols = numeric_columns]
+
+      # 处理日期列
+      self$merged_df$RecordTime <- as.Date(self$merged_df$RecordTime, format = "%Y-%m-%d")
+      self$target$RecordTime <- as.Date(self$target$RecordTime, format = "%Y-%m-%d")
+
+      # 将 target 数据添加到 merged_df
+      merged_data <- merge(self$merged_df, self$target, by = c("PatientID", "RecordTime", "Outcome", "LOS"))
+
+      # 将数据转换为 H2O 格式
+      data_h2o <- as.h2o(merged_data)
+
+      # 分割数据
+      splits <- h2o.splitFrame(data_h2o, ratios = 0.8, seed = 123)
+      train_h2o <<- splits[[1]]
+      valid_h2o <<- splits[[2]]
+
+      # 转换目标变量为因子类型
+      train_h2o$Outcome <- as.factor(train_h2o$Outcome)
+      valid_h2o$Outcome <- as.factor(valid_h2o$Outcome)
+
+      # 创建 data_handler
+      self$data_handler <- list(
+        train_h2o = train_h2o,
+        valid_h2o = valid_h2o
+      )
+
     },
 
-    train_dataloader = function() {
-      dataset_instance <- EhrDataset(self$data, self$target)
-      dataloader <- dataloader(dataset_instance, batch_size = self$batch_size, shuffle = TRUE)
-      return(dataloader)
+    get_data_handler = function() {
+      return(self$data_handler)
     }
   )
 )
-
-
-
-# 创建示例数据
-data <- torch_tensor(matrix(rnorm(1000), ncol = 10), dtype = torch_float())
-target <- torch_tensor(rnorm(100), dtype = torch_float())
-
-# 初始化 EhrDataModule 实例
-data_module <- EhrDataModule$new(data = data, target = target, batch_size = 4)
-debug(data_module$train_dataloader)
-# 测试 train_dataloader 方法
-dataloader <- data_module$train_dataloader()
-
-# 打印数据加载器中的第一个批次
-first_batch <- dataloader$.iter()$.next()
-print(first_batch)

@@ -2,6 +2,7 @@ library(data.table)
 library(torch)
 library(coro)
 library(R6)
+library(h2o)
 library(reticulate)
 library(dplyr)
 source("R/models.R")
@@ -13,70 +14,60 @@ activation_functions <- list(
   tanh = nn_tanh
 )
 
+
 Pipeline <- R6::R6Class(
   "Pipeline",
   public = list(
-    data_handler = NULL,
+    train_h2o = NULL,
+    valid_h2o = NULL,
     model = NULL,
     config = NULL,
 
     initialize = function(data_handler, model_type, act_function) {
-      self$data_handler <- data_handler
+      Sys.setenv(JAVA_HOME = "D:/Program Files/Java/jdk-11.0.12")
+      h2o.init()
+      self$train_h2o <- data_handler$train_h2o
+      self$valid_h2o <- data_handler$valid_h2o
 
       self$config <- list(
         model_type = model_type,
         act_layer = act_function,
-        hidden_dim = 20,  # Example value
-        drop = 0.5,       # Example value
-        lr = 0.001        # Example value
+        hidden_dim = 50,  # 示例值
+        drop = 0.5,       # 示例值
+        lr = 0.001        # 示例值
       )
 
-      input_dim <- ncol(merged_df) - 1  # Adjust to match your dataset
 
       if (model_type == "GRU") {
-        self$model <- MyGRU$new(input_dim = input_dim, hidden_dim = self$config$hidden_dim,
-                                act_layer = self$config$act_layer, drop = self$config$drop)
+        self$model <- h2o.deeplearning(
+          x <- colnames(self$train_h2o)[!(colnames(self$train_h2o) %in% c("Outcome", "LOS"))],  # 特征列
+          y = "Outcome",  # 目标列
+          training_frame = self$train_h2o,
+          validation_frame = self$valid_h2o,
+          activation = "RectifierWithDropout",
+          hidden = c(self$config$hidden_dim, self$config$hidden_dim, self$config$hidden_dim),  # 隐藏层大小
+          epochs = 20,
+          variable_importances = TRUE
+        )
       } else if (model_type == "MLP") {
-        self$model <- MyMLP$new(input_dim = input_dim, hidden_dim = self$config$hidden_dim,
-                                act_layer = self$config$act_layer, drop = self$config$drop)
+        self$model <- h2o.deeplearning(
+          x <- colnames(self$train_h2o)[!(colnames(self$train_h2o) %in% c("Outcome", "LOS"))],  # 特征列
+          y = "Outcome",  # 目标列
+          training_frame = self$train_h2o,
+          validation_frame = self$valid_h2o,
+          activation = "Rectifier",
+          hidden = c(self$config$hidden_dim, self$config$hidden_dim),  # 隐藏层大小
+          epochs = 20,
+          variable_importances = TRUE
+        )
       } else {
         stop("Unsupported model type")
       }
     },
 
     train = function() {
-      # 获取 dataloader
-      dataloaders <- self$data_handler$train_dataloader()
-      train_dl <- dataloaders$train_dl
-      valid_dl <- dataloaders$valid_dl
-
-      # 检查 model 参数是否为 NULL
-      if (is.null(self$model$parameters)) {
-        stop("Model parameters are NULL.")
-      }
-
-      # 定义优化器
-      optimizer <- optim_adam(self$model$parameters, lr = self$config$lr)
-
-      # 训练逻辑
-      for (epoch in 1:20) {
-        self$model$train()
-        train_losses <- c()
-
-        coro::loop(for (b in train_dl) {
-          optimizer$zero_grad()
-          output <- self$model$forward(b$x)
-          loss <- nnf_mse_loss(output, b$y)
-
-          loss$backward()
-          optimizer$step()
-
-          train_losses <- c(train_losses, loss$item())
-        })
-
-        cat(sprintf("Loss at epoch %d: %3.3f\n", epoch, mean(train_losses)))
-      }
+      # 打印模型性能
+      print(h2o.performance(self$model, valid = TRUE))
     }
   )
 )
-

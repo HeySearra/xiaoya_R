@@ -163,3 +163,20 @@ valid_dl <- dataloaders$valid_dl
 
 str(dataloaders)
 
+
+##########################
+source("R/data_module.R")
+source('R/pipeline.R')
+
+# 初始化 EHRDataset 对象
+debug(EHRDataset$new)
+ehr_dataset <- EHRDataset$new("datasets/standard_merged_data.csv", "datasets/standard_target_data.csv")
+
+# 获取 data_handler
+data_handler <- ehr_dataset$get_data_handler()
+debug(Pipeline$new)
+pipeline_gru <- Pipeline$new(data_handler, model_type = "GRU", act_function = "relu")
+pipeline_gru$train()
+
+pipeline_mlp <- Pipeline$new(data_handler, model_type = "MLP", act_function = "relu")
+pipeline_mlp$train()

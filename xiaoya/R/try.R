@@ -36,17 +36,17 @@ cat("Number of columns in train_h2o:", ncol_train, "\n")
 cat("Column names in train_h2o:", colnames_train, "\n")
 str(train_h2o)
 
-# 定义和训练 GRU 模型
-gru_model <- h2o.deeplearning(
-  x = colnames(train_h2o)[-ncol(train_h2o)],  # 特征列
-  y = colnames(train_h2o)[ncol(train_h2o)],   # 目标列
-  training_frame = train_h2o,
-  validation_frame = valid_h2o,
-  activation = "RectifierWithDropout",
-  hidden = c(50, 50, 50),  # 隐藏层大小
-  epochs = 20,
-  variable_importances = TRUE
-)
+  # 定义和训练 GRU 模型
+  gru_model <- h2o.deeplearning(
+    x = colnames(train_h2o)[-ncol(train_h2o)],  # 特征列
+    y = colnames(train_h2o)[ncol(train_h2o)],   # 目标列
+    training_frame = train_h2o,
+    validation_frame = valid_h2o,
+    activation = "RectifierWithDropout",
+    hidden = c(50, 50, 50),  # 隐藏层大小
+    epochs = 20,
+    variable_importances = TRUE
+  )
 
 
 # 模型性能
