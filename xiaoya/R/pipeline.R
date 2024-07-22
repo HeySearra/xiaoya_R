@@ -56,21 +56,61 @@ Pipeline <- R6Class(
     },
 
     prepare_data = function() {
+      # 获取特征数据
       features <- self$data_handler$merged_df[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
-      target <- self$data_handler$target$Outcome
+      target <- self$data_handler$target[, .(PatientID, Outcome)] # 只保留 PatientID 和 Outcome
 
-      numeric_matrix <- as.matrix(sapply(features, as.numeric))
-      target_tensor <- torch_tensor(as.numeric(target), dtype = torch_float())
+      # 确保特征数据和目标数据的患者ID一致
+      patient_ids <- intersect(unique(self$data_handler$merged_df$PatientID), unique(self$data_handler$target$PatientID))
 
-      numeric_tensor <- torch_tensor(numeric_matrix, dtype = torch_float())
+      # 过滤特征数据和目标数据
+      filtered_data <- self$data_handler$merged_df[self$data_handler$merged_df$PatientID %in% patient_ids]
+      filtered_target <- self$data_handler$target[self$data_handler$target$PatientID %in% patient_ids]
 
-      self$data_module <- EhrDataModule$new(data = numeric_tensor, target = target_tensor, batch_size = self$config$batch_size)
+      # 将特征数据和目标数据转换为矩阵
+      features_filtered <- filtered_data[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
+      target_filtered <- filtered_target[, .(PatientID, Outcome)]
+
+      numeric_matrix <- as.matrix(sapply(features_filtered, as.numeric))
+      target_tensor <- torch_tensor(as.numeric(target_filtered$Outcome), dtype = torch_float())
+
+      # 按患者ID分组
+      patient_data <- split(filtered_data, filtered_data$PatientID)
+      patient_target <- split(filtered_target, filtered_target$PatientID) # 分组目标数据
+
+      # 将每个患者的数据转换为矩阵，并处理缺失值
+      patient_matrices <- lapply(patient_data, function(df) {
+        df <- df[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
+        df <- as.data.frame(lapply(df, function(col) {
+          col[is.na(col)] <- 0  # 替换缺失值为0
+          as.numeric(col)
+        }))
+        as.matrix(df)
+      })
+
+      # 处理目标数据
+      patient_targets <- lapply(patient_target, function(df) {
+        outcome <- df$Outcome
+        outcome <- as.numeric(outcome)
+        return(outcome)
+      })
+
+      # 转换为tensor
+      numeric_tensors <- lapply(patient_matrices, function(mat) {
+        torch_tensor(mat, dtype = torch_float())
+      })
+
+      target_tensors <- lapply(patient_targets, function(target) {
+        torch_tensor(target, dtype = torch_float())
+      })
+
+      # 构建 EhrDataModule 实例
+      self$data_module <- EhrDataModule$new(data = numeric_tensors, target = target_tensors, batch_size = self$config$batch_size)
     },
 
     build_model = function(model_type) {
       input_dim <- ncol(self$data_handler$merged_df) - 4  # 减去PatientID, RecordTime, Outcome, LOS的列数
 
-      print("input_dim: ", input_dim)
       if (model_type == "GRU") {
         self$model <- GRU$new(
           input_dim = input_dim,
@@ -103,10 +143,6 @@ Pipeline <- R6Class(
         coro::loop(for (batch in dataloader) {
           x <- batch[[1]]
           y <- batch[[2]]
-
-          if (length(dim(x)) == 2) {
-            x <- torch_reshape(x, c(dim(x)[1], dim(x)[2], 1))  # 将数据调整为 (batch_size, seq_len, input_dim)
-          }
 
           print(paste("Input shape:", paste(dim(x), collapse = "x")))
           print(paste("Target shape:", paste(dim(y), collapse = "x")))

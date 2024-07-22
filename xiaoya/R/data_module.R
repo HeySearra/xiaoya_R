@@ -16,30 +16,30 @@ EhrDataset <- dataset(
 
   get_item = function(index) {
     list(
-      x = torch_tensor(as.numeric(self$data[index, ]), dtype = torch_float()),
-      y = torch_tensor(as.numeric(self$target[index]), dtype = torch_float())
+      x = self$data[[index]],  # 假设self$data是一个包含多个torch_tensor的列表
+      y = self$target[[index]]
     )
   },
+
   .getitem = function(index) {
     list(
-      x = torch_tensor(as.numeric(self$data[index, ]), dtype = torch_float()),
-      y = torch_tensor(as.numeric(self$target[index]), dtype = torch_float())
+      x = self$data[[index]],  # 假设self$data是一个包含多个torch_tensor的列表
+      y = self$target[[index]]
     )
   },
 
   .length = function() {
-    nrow(self$data)
+    length(self$data)  # 假设self$data是一个列表
   },
 
   length = function() {
-    nrow(self$data)
+    length(self$data)  # 假设self$data是一个列表
   }
 )
 
 
 EhrDataModule <- R6Class(
   "EhrDataModule",
-
   public = list(
     data = NULL,
     target = NULL,
@@ -60,18 +60,11 @@ EhrDataModule <- R6Class(
 )
 
 
-# data <- torch_tensor(matrix(rnorm(1000), ncol = 10), dtype = torch_float())
-# target <- torch_tensor(rnorm(100), dtype = torch_float())
-
-# 初始化 EhrDataModule 实例
-# data_module <- EhrDataModule$new(data = data, target = target, batch_size = 4)
-# debug(data_module$train_dataloader)
-# 测试 train_dataloader 方法
-# dataloader <- data_module$train_dataloader()
-
-# 打印数据加载器中的第一个批次
-# first_batch <- dataloader$.iter()$.next()
-# print(first_batch)
+# test_data <- list(torch_tensor(matrix(1:9, nrow = 3)), torch_tensor(matrix(10:18, nrow = 3)))
+# test_target <- list(torch_tensor(1), torch_tensor(2))
+# test_dataset <- EhrDataset(test_data, test_target)
+# print(test_dataset)
+# print(test_dataset$get_item(1))
 
 ##############################
 

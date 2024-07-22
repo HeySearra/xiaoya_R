@@ -11,9 +11,8 @@ GRU <- torch::nn_module(
   },
   forward = function(x) {
     gru_output <- self$gru(x)
-    x <- gru_output[[1]]  # 获取GRU的输出
-    x <- x[, -1, ]  # 获取最后一个时间步的输出
-
+    x <- gru_output[[1]]
+    x <- x[, -1, ]
     x <- self$dropout(x)
     x <- self$fc(x)
     x <- self$activation(x)
@@ -25,17 +24,17 @@ GRU <- torch::nn_module(
 
 
 # 示例测试
-input_dim <- 75
-hidden_dim <- 32
-dropout_rate <- 0.5
-model <- GRU$new(input_dim = input_dim, hidden_dim = hidden_dim, act_layer = nn_relu, drop = dropout_rate)
+# input_dim <- 75
+# hidden_dim <- 32
+# dropout_rate <- 0.5
+# model <- GRU$new(input_dim = input_dim, hidden_dim = hidden_dim, act_layer = nn_relu, drop = dropout_rate)
 
 # 创建一个模拟输入
-input_tensor <- torch_randn(c(32, 75, input_dim)) # (batch_size, seq_len, input_dim)
+# input_tensor <- torch_randn(c(32, 75, input_dim)) # (batch_size, seq_len, input_dim)
 
 # 前向传播
-output <- model$forward(input_tensor)
-print(paste("Output shape:", paste(dim(output), collapse = "x")))
+# output <- model$forward(input_tensor)
+# print(paste("Output shape:", paste(dim(output), collapse = "x")))
 
 
 MyGRU <- R6::R6Class(
