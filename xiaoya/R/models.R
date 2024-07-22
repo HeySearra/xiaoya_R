@@ -21,8 +21,6 @@ GRU <- torch::nn_module(
 )
 
 
-
-
 # 示例测试
 # input_dim <- 75
 # hidden_dim <- 32

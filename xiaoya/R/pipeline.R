@@ -4,23 +4,6 @@ source('R/utils.R')
 source("R/data_module.R")
 source('R/models.R')
 
-# 使用：
-# labtest_data <- fread('datasets/raw_labtest_data.csv')
-# events_data <- fread('datasets/raw_events_data.csv')
-# target_data <- fread('datasets/raw_target_data.csv')
-
-# 初始化DataHandler对象
-# data_handler <- init_data_handler(labtest_data, events_data, target_data, data_path)
-
-# 执行数据处理操作
-# data_handler <- format_and_merge_dataframes(data_handler)
-# data_handler <- save_processed_data(data_handler)
-
-# 初始化Pipeline对象并执行
-# pipeline <- Pipeline$new()
-# result <- pipeline$execute()
-# print(result)
-
 # 定义激活函数字典
 activation_functions <- list(
   relu = nn_relu,
@@ -43,7 +26,7 @@ Pipeline <- R6Class(
       self$data_handler <- data_handler
       self$config <- list(
         batch_size = 32,
-        epochs = 100,
+        epochs = 20,
         lr = 0.001,
         hidden_dim = 64,
         act_layer = activation_functions[[act_function]],
@@ -54,20 +37,17 @@ Pipeline <- R6Class(
       self$prepare_data()
       self$build_model(model_type)
     },
-
     prepare_data = function() {
       # 获取特征数据
       features <- self$data_handler$merged_df[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
       target <- self$data_handler$target[, .(PatientID, Outcome)] # 只保留 PatientID 和 Outcome
 
-      # 确保特征数据和目标数据的患者ID一致
+      # 确保特征数据和target的患者ID一致
       patient_ids <- intersect(unique(self$data_handler$merged_df$PatientID), unique(self$data_handler$target$PatientID))
 
-      # 过滤特征数据和目标数据
+      # 过滤特征数据和target
       filtered_data <- self$data_handler$merged_df[self$data_handler$merged_df$PatientID %in% patient_ids]
       filtered_target <- self$data_handler$target[self$data_handler$target$PatientID %in% patient_ids]
-
-      # 将特征数据和目标数据转换为矩阵
       features_filtered <- filtered_data[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
       target_filtered <- filtered_target[, .(PatientID, Outcome)]
 
@@ -78,34 +58,70 @@ Pipeline <- R6Class(
       patient_data <- split(filtered_data, filtered_data$PatientID)
       patient_target <- split(filtered_target, filtered_target$PatientID) # 分组目标数据
 
-      # 将每个患者的数据转换为矩阵，并处理缺失值
+      # 处理缺失值
       patient_matrices <- lapply(patient_data, function(df) {
         df <- df[, -c("PatientID", "RecordTime", "Outcome", "LOS"), with = FALSE]
         df <- as.data.frame(lapply(df, function(col) {
-          col[is.na(col)] <- 0  # 替换缺失值为0
           as.numeric(col)
+          col[is.na(col)] <- 0  # 替换缺失值为0
         }))
         as.matrix(df)
       })
 
-      # 处理目标数据
       patient_targets <- lapply(patient_target, function(df) {
         outcome <- df$Outcome
         outcome <- as.numeric(outcome)
         return(outcome)
       })
 
-      # 转换为tensor
-      numeric_tensors <- lapply(patient_matrices, function(mat) {
-        torch_tensor(mat, dtype = torch_float())
-      })
+      max_length <- max(sapply(patient_matrices, nrow))
 
-      target_tensors <- lapply(patient_targets, function(target) {
-        torch_tensor(target, dtype = torch_float())
+      # 调整每个患者的data和target的长度
+      adjusted_matrices <- list()
+      adjusted_targets <- list()
+
+      for (i in seq_along(patient_matrices)) {
+        data_length <- nrow(patient_matrices[[i]])
+        target_length <- length(patient_targets[[i]])
+
+        # 如果data较短，则截断target
+        if (data_length < target_length) {
+          adjusted_targets[[i]] <- patient_targets[[i]][1:data_length]
+        } else {
+          adjusted_targets[[i]] <- patient_targets[[i]]
+        }
+
+        # 如果target较短，则填充目标为target中的前值
+        if (target_length < data_length) {
+          padding <- rep(patient_targets[[i]][target_length], data_length - target_length)
+          adjusted_targets[[i]] <- c(patient_targets[[i]], padding)
+        }
+
+        # 填充data和target到最大长度
+        if (nrow(patient_matrices[[i]]) < max_length) {
+          data_padding <- matrix(0, nrow = max_length - nrow(patient_matrices[[i]]), ncol = ncol(patient_matrices[[i]]))
+          adjusted_data <- rbind(patient_matrices[[i]], data_padding)
+        } else {
+          adjusted_data <- patient_matrices[[i]]
+        }
+
+        if (length(adjusted_targets[[i]]) < max_length) {
+          target_padding <- rep(adjusted_targets[[i]][length(adjusted_targets[[i]])], max_length - length(adjusted_targets[[i]]))
+          adjusted_targets[[i]] <- c(adjusted_targets[[i]], target_padding)
+        }
+
+        adjusted_matrices[[i]] <- torch_tensor(adjusted_data, dtype = torch_float())
+        adjusted_targets[[i]] <- torch_tensor(adjusted_targets[[i]], dtype = torch_float())
+      }
+
+      # 调整目标的形状以匹配模型的输出形状
+      adjusted_targets <- lapply(adjusted_targets, function(t) {
+        t <- t$view(c(-1, 1))  # 调整形状为 (batch_size, 1)
+        return(t)
       })
 
       # 构建 EhrDataModule 实例
-      self$data_module <- EhrDataModule$new(data = numeric_tensors, target = target_tensors, batch_size = self$config$batch_size)
+      self$data_module <- EhrDataModule$new(data = adjusted_matrices, target = adjusted_targets, batch_size = self$config$batch_size)
     },
 
     build_model = function(model_type) {
@@ -144,12 +160,7 @@ Pipeline <- R6Class(
           x <- batch[[1]]
           y <- batch[[2]]
 
-          print(paste("Input shape:", paste(dim(x), collapse = "x")))
-          print(paste("Target shape:", paste(dim(y), collapse = "x")))
-
           output <- self$model$forward(x)
-
-          print(paste("Output shape:", paste(dim(output), collapse = "x")))
 
           optimizer$zero_grad()
           loss <- criterion(output$squeeze(2), y)
